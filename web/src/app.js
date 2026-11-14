@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
+import { unzipSync, strFromU8 } from 'three/addons/libs/fflate.module.js';
 import { measureRound, hasTopo, triCount, MAX_TRIS, resetTopo } from './round.js';
 import { massProps, weights } from './mass.js';
 import { T, lang, applyStatic } from './i18n.js';
@@ -192,13 +193,74 @@ function parseSTL(buf) {
   return new THREE.Mesh(g, m);
 }
 
+// Bambu Studio / OrcaSlicer keep colours outside the standard 3MF materials:
+// each part has an extruder number, and the project lists a colour per filament.
+function applySlicerColors(buf, group) {
+  let files;
+  try {
+    files = unzipSync(new Uint8Array(buf), { filter: (f) => /^(Metadata\/(model_settings|project_settings)\.config|3D\/3dmodel\.model)$/i.test(f.name) });
+  } catch (e) { return false; }
+  const find = (name) => { const k = Object.keys(files).find((x) => x.toLowerCase() === name); return k ? strFromU8(files[k]) : null; };
+  const ms = find('metadata/model_settings.config'), ps = find('metadata/project_settings.config'), main = find('3d/3dmodel.model');
+  if (!ms || !ps || !main) return false;
+  let colours;
+  try { colours = JSON.parse(ps).filament_colour; } catch (e) { return false; }
+  if (!Array.isArray(colours) || !colours.length) return false;
+  const xml = (t) => new DOMParser().parseFromString(t, 'application/xml');
+  const extruderOf = (el) => {
+    const m = Array.from(el.children).find((c) => c.tagName === 'metadata' && c.getAttribute('key') === 'extruder');
+    return m ? parseInt(m.getAttribute('value'), 10) : NaN;
+  };
+  const cfg = {};
+  Array.from(xml(ms).getElementsByTagName('object')).forEach((o) => {
+    const parts = {};
+    Array.from(o.getElementsByTagName('part')).forEach((p) => { parts[p.getAttribute('id')] = extruderOf(p); });
+    cfg[o.getAttribute('id')] = { ext: extruderOf(o), parts };
+  });
+  const doc = xml(main);
+  const components = {};
+  Array.from(doc.getElementsByTagName('object')).forEach((o) => {
+    components[o.getAttribute('id')] = Array.from(o.getElementsByTagName('component')).map((c) => c.getAttribute('objectid'));
+  });
+  const items = Array.from(doc.getElementsByTagName('item')).map((i) => i.getAttribute('objectid'));
+  if (items.length !== group.children.length) return false;
+  const paint = (obj, ext) => {
+    const hex = colours[(ext || 1) - 1];
+    if (typeof hex !== 'string' || !/^#[0-9a-f]{6}/i.test(hex)) return false;
+    obj.traverse((o) => {
+      if (!o.isMesh) return;
+      [].concat(o.material).forEach((m) => m.dispose());
+      o.material = defaultMat();
+      o.material.flatShading = true;
+      o.material.color.set(hex.slice(0, 7));
+    });
+    return true;
+  };
+  let any = false;
+  items.forEach((id, k) => {
+    const c = cfg[id], node = group.children[k], comps = components[id] || [];
+    if (!c) return;
+    if (comps.length && comps.length === node.children.length) {
+      comps.forEach((pid, j) => { any = paint(node.children[j], c.parts[pid] || c.ext) || any; });
+    } else {
+      any = paint(node, c.ext) || any;
+    }
+  });
+  return any;
+}
+
 function parse3MF(buf) {
   const group = new ThreeMFLoader().parse(buf);
+  let slicer = false;
+  try { slicer = applySlicerColors(buf, group); } catch (e) { console.error(e); }
   group.traverse((o) => {
-    if (o.isMesh) {
-      if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
-      [].concat(o.material).forEach((m) => { m.side = THREE.DoubleSide; });
-    }
+    if (!o.isMesh) return;
+    if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+    // a file with no colour information gets the app's default colour instead of plain white
+    const mats = [].concat(o.material);
+    const blank = !slicer && mats.every((m) => (!m.name || m.name === THREE.Loader.DEFAULT_MATERIAL_NAME) && !m.map && !m.vertexColors && m.color && m.color.getHex() === 0xffffff);
+    if (blank) { mats.forEach((m) => m.dispose()); o.material = defaultMat(); o.material.flatShading = true; }
+    [].concat(o.material).forEach((m) => { m.side = THREE.DoubleSide; });
   });
   return group;
 }
@@ -502,7 +564,7 @@ $('infill').addEventListener('change', renderWeight);
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => { e.preventDefault(); openFile(e.dataTransfer.files[0]); });
 
-window.__viewer = { openFile, openPending, project: (x, y, z) => { const r = renderer.domElement.getBoundingClientRect(); const p = toScreen(new THREE.Vector3(x, y, z), r); return [p.x + r.left, p.y + r.top]; } };
+window.__viewer = { openFile, openPending, tree: () => { const out = []; const walk = (o, d) => { out.push('  '.repeat(d) + o.type + ' name=' + JSON.stringify(o.name) + ' ud=' + JSON.stringify(o.userData) + (o.isMesh ? ' tris=' + (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3 + ' groups=' + o.geometry.groups.length : '')); o.children.forEach((c) => walk(c, d + 1)); }; if (model) walk(model, 0); return out.join('\n'); }, colors: () => { const out = []; if (model) model.traverse((o) => { if (o.isMesh) [].concat(o.material).forEach((m) => out.push('#' + m.color.getHexString() + (m.vertexColors ? '+vc' : ''))); }); return out.join(' '); }, project: (x, y, z) => { const r = renderer.domElement.getBoundingClientRect(); const p = toScreen(new THREE.Vector3(x, y, z), r); return [p.x + r.left, p.y + r.top]; } };
 openPending();
 initAccess((acc) => { if (acc.state === 'owned') { status(''); openPending(); } resize(); });
 initTour();

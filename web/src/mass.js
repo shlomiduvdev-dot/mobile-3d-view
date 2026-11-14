@@ -57,7 +57,8 @@ export function massProps(model, bbox) {
     col.length = 0;
     for (let e = head[k]; e >= 0; e = evNext[e]) col.push(e);
     if (!col.length) continue;
-    col.sort((p, q) => evZ[p] - evZ[q]);
+    // where two parts touch, read the surface below before the one resting on it
+    col.sort((p, q) => (evZ[p] - evZ[q]) || (evN[q] - evN[p]));
     let below = zBed;
     for (const e of col) {
       if (evN[e] > 0) below = evZ[e];
