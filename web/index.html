@@ -171,25 +171,23 @@
 </footer>
 <div id="paywall" role="dialog" aria-modal="true" hidden>
   <div class="tourcard paycard">
-    <div id="payicon"><svg width="92" height="102" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="80 60 380 420"><defs>
-<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#303a4a"/><stop offset="1" stop-color="#11141a"/></linearGradient>
+    <div id="payicon"><svg width="70" height="120" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="40 66 224 384"><defs>
+<linearGradient id="bgO" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffc35a"/><stop offset="1" stop-color="#ec8a12"/></linearGradient>
+<linearGradient id="bgD" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#303a4a"/><stop offset="1" stop-color="#11141a"/></linearGradient>
+<linearGradient id="scr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3444"/><stop offset="1" stop-color="#131820"/></linearGradient>
 <linearGradient id="top" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe0a8"/><stop offset="1" stop-color="#ffb648"/></linearGradient>
 <linearGradient id="left" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7a732"/><stop offset="1" stop-color="#e58a14"/></linearGradient>
 <linearGradient id="right" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cf7c1c"/><stop offset="1" stop-color="#9c590d"/></linearGradient>
-<radialGradient id="glow" cx="0.5" cy="0.42" r="0.6"><stop offset="0" stop-color="#ffb648" stop-opacity="0.22"/><stop offset="1" stop-color="#ffb648" stop-opacity="0"/></radialGradient>
-<radialGradient id="shadow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#000" stop-opacity="0.5"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
-</defs><ellipse cx="256" cy="402" rx="170" ry="44" fill="url(#shadow)"/>
-<polygon points="256,92 386,167 256,242 126,167" fill="url(#top)"/>
+</defs><rect x="58" y="88" width="196" height="356" rx="33.32" fill="#000" opacity="0.28"/>
+<rect x="52" y="78" width="196" height="356" rx="33.32" fill="#0b0e13" stroke="#8b96a5" stroke-width="5"/>
+<rect x="65" y="91" width="170" height="330" rx="22.32" fill="url(#scr)"/>
+<rect x="122.56" y="102" width="54.88" height="9" rx="4.5" fill="#0b0e13"/>
+<g transform="translate(150.0 259.56) scale(0.5) translate(-256 -242)"><polygon points="256,92 386,167 256,242 126,167" fill="url(#top)"/>
 <polygon points="126,167 256,242 256,392 126,317" fill="url(#left)"/>
 <polygon points="386,167 256,242 256,392 386,317" fill="url(#right)"/>
-<polyline points="126,167 256,92 386,167" fill="none" stroke="#fff" stroke-opacity="0.55" stroke-width="4" stroke-linejoin="round"/>
-<polyline points="126,167 256,242 386,167" fill="none" stroke="#fff" stroke-opacity="0.28" stroke-width="3" stroke-linejoin="round"/>
-<line x1="256" y1="242" x2="256" y2="392" stroke="#fff" stroke-opacity="0.18" stroke-width="3"/>
-<g stroke="#6fd3ff" stroke-width="11" stroke-linecap="round" fill="none">
-  <line x1="276" y1="427" x2="406" y2="352"/>
-  <line x1="267" y1="411" x2="285" y2="443"/>
-  <line x1="397" y1="336" x2="415" y2="368"/>
-</g></svg></div>
+<polyline points="126,167 256,92 386,167" fill="none" stroke="#fff" stroke-opacity="0.6" stroke-width="5" stroke-linejoin="round"/>
+<polyline points="126,167 256,242 386,167" fill="none" stroke="#fff" stroke-opacity="0.3" stroke-width="4" stroke-linejoin="round"/>
+<line x1="256" y1="242" x2="256" y2="392" stroke="#fff" stroke-opacity="0.2" stroke-width="4"/></g></svg></div>
     <h2 id="paytitle"></h2>
     <p id="paybody"></p>
     <button id="paybuy" class="primary"></button>
@@ -213,7 +211,7 @@
   <div class="tourcard aboutcard">
     <h2 id="abouttitle"></h2>
     <div id="aboutmain">
-      <p class="ver" dir="ltr">Mobile 3D View 1.12</p>
+      <p class="ver" dir="ltr">Mobile 3D View 1.13</p>
       <p id="abouttext"></p>
       <h3 id="aboutoss"></h3>
       <ul id="aboutlibs"></ul>
