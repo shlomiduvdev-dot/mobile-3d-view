@@ -1,0 +1,58 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The upload key is supplied by the build server (GitHub Actions secrets), never stored in the repository.
+def keystoreFile = System.getenv('UPLOAD_KEYSTORE_FILE')
+
+android {
+    namespace 'com.dfus3d.mobile3dview'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.dfus3d.mobile3dview'
+        minSdk 24
+        targetSdk 36
+        versionCode 12
+        versionName '1.11'
+    }
+
+    signingConfigs {
+        release {
+            if (keystoreFile) {
+                storeFile file(keystoreFile)
+                storeType 'jks'
+                storePassword System.getenv('UPLOAD_KEY_PASSWORD')
+                keyAlias 'upload'
+                keyPassword System.getenv('UPLOAD_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (keystoreFile) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    androidResources {
+        noCompress += ['wasm']
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'com.android.billingclient:billing:8.2.1'
+}

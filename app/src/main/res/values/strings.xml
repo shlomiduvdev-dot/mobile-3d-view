@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources><string name="app_name">Mobile 3D View</string>
+<style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+  <item name="android:statusBarColor">#1d2128</item>
+  <item name="android:navigationBarColor">#1d2128</item>
+  <item name="android:windowBackground">@android:color/black</item>
+</style></resources>

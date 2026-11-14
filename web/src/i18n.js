@@ -1,0 +1,115 @@
+// Hebrew when the device language is Hebrew, English otherwise.
+function detect() {
+  let l = '';
+  try { l = new URLSearchParams(location.search).get('lang') || ''; } catch (e) { /* ignore */ }
+  try { if (!l && window.AndroidHost && window.AndroidHost.lang) l = window.AndroidHost.lang(); } catch (e) { /* ignore */ }
+  if (!l) l = navigator.language || 'en';
+  l = l.toLowerCase();
+  return l.startsWith('he') || l.startsWith('iw') ? 'he' : 'en';
+}
+export const lang = detect();
+
+const S = {
+  he: {
+    open: 'פתח קובץ', choose: 'בחר קובץ',
+    intro: 'פתח קובץ STL, 3MF או STEP כדי לראות את המודל ואת המידות החיצוניות שלו.',
+    hint: 'אצבע אחת – סיבוב · צביטה – זום · שתי אצבעות – הזזה',
+    modeGroup: 'סוג מדידה', mFace: 'בין פאות', mPoint: 'בין נקודות', mRound: 'קוטר / רדיוס', clear: 'נקה',
+    layReset: 'החזר למקור', xw: 'X רוחב', yd: 'Y עומק', zh: 'Z גובה', mm: 'מ״מ', g: 'גרם',
+    wTitle: 'משקל PLA משוער בהנחה הנוכחית', wModel: 'המודל', wSupports: 'תמיכות', wTotal: 'סה״כ', infill: 'מילוי',
+    vReset: 'איפוס', vTop: 'מעל', vFront: 'חזית', vSide: 'צד', box: 'תיבה', measure: 'מדידה', lay: 'הנח על פאה',
+    noGeom: 'הקובץ לא מכיל גיאומטריה',
+    meta: (n, step) => n + ' משולשים · רשת ' + step + ' מ״מ',
+    layDone: 'המודל הונח על הפאה. הקש על פאה אחרת כדי לשנות.', layPrompt: 'הקש על הפאה שתונח על המשטח',
+    noVol: 'לא ניתן לחשב משקל – הרשת לא סגורה', notNeeded: 'לא נדרשות',
+    stepEngineFail: 'טעינת מנוע ה-STEP נכשלה', stepLoading: 'טוען מנוע STEP (כ-7MB, פעם אחת)…',
+    stepConvert: 'ממיר STEP לרשת…', stepFail: 'לא הצלחתי לקרוא את קובץ ה-STEP',
+    roundPrompt: 'הקש על דופן של חור או על פילט', hole: 'חור', cylinder: 'גליל', radius: 'רדיוס',
+    innerR: 'רדיוס פנימי', outerR: 'רדיוס חיצוני', arc: 'קשת', diameter: 'קוטר',
+    tapFirst: { face: 'הקש על פאה ראשונה במודל', point: 'הקש על נקודה ראשונה במודל' },
+    tapSecond: { face: 'הקש על פאה שנייה', point: 'הקש על נקודה שנייה' },
+    parallel: 'מרחק ניצב בין פאות מקבילות',
+    notParallel: (a) => 'הפאות לא מקבילות (זווית ' + a + '°) – מרחק מנקודת ההקשה למישור הפאה הראשונה',
+    tooBig: 'הרשת גדולה מדי למדידת קוטר', analyzing: 'מנתח את הרשת…',
+    noRound: 'לא זוהה כאן משטח עגול – נסה להקיש על מקום אחר בקימור',
+    unsupported: (ext) => 'סוג קובץ לא נתמך: ' + ext + '. נתמכים STL, 3MF, STEP',
+    opening: (name) => 'פותח את ' + name + '…', openErr: 'שגיאה בפתיחת הקובץ',
+    pendingErr: 'לא הצלחתי לקרוא את הקובץ שנשלח לאפליקציה',
+    trialLeft: (d) => d === 1 ? 'ניסיון חינם: נותר יום אחד' : 'ניסיון חינם: נותרו ' + d + ' ימים', trialBuy: 'לרכישה',
+    payTitleExpired: 'תקופת הניסיון הסתיימה',
+    payBody: 'כדי להמשיך להשתמש ב-Mobile 3D View נדרש תשלום חד-פעמי. בלי מנוי ובלי פרסומות.',
+    payBuy: 'רכישה', payRestore: 'שחזר רכישה', payChecking: 'בודק…',
+    payRestoreNone: 'לא נמצאה רכישה בחשבון Google הזה.',
+    payPending: 'התשלום ממתין לאישור. האפליקציה תיפתח כשהוא יאושר.',
+    payUnavailable: 'הרכישה לא זמינה כרגע. ודא שהאפליקציה הותקנה מ-Google Play ושיש חיבור לאינטרנט.',
+    lockedOpen: 'תקופת הניסיון הסתיימה',
+    about: 'אודות ורישיונות', aboutClose: 'סגור', aboutBack: 'חזרה',
+    aboutText: 'הקבצים שאתה פותח נשארים על המכשיר ולא נשלחים לשום שרת. אין פרסומות ואין מעקב. הרכישה מתבצעת דרך Google Play.',
+    aboutOss: 'רכיבי קוד פתוח', aboutView: 'הצג רישיון',
+    tourHelp: 'מדריך', tourNext: 'הבא', tourBack: 'הקודם', tourSkip: 'דלג', tourDone: 'בוא נתחיל',
+    tourOpenWith: 'אפשר גם ללחוץ על קובץ בוואטסאפ, במייל או במנהל הקבצים ולבחור באפליקציה ב״פתח באמצעות״.',
+    tour: [
+      ['פותחים מודל', 'לחץ על ״פתח קובץ״ ובחר קובץ STL, ‏3MF או STEP. הקובץ נשאר במכשיר ולא נשלח לשום מקום.'],
+      ['מסתכלים מכל כיוון', 'אצבע אחת מסובבת, צביטה מקרבת ומרחיקה, שתי אצבעות מזיזות. הכפתורים מעל, חזית וצד קופצים למבט ישר, ו״איפוס״ מחזיר למבט ההתחלתי.'],
+      ['מידות חיצוניות', 'רוחב, עומק וגובה של המודל במילימטרים מוצגים תמיד למטה. הכפתור ״תיבה״ מציג או מסתיר את המסגרת שסביב המודל.'],
+      ['מודדים על המודל', 'לחץ על ״מדידה״ ובחר סוג: מרחק ניצב בין שתי פאות, מרחק בין שתי נקודות, או קוטר של חור ורדיוס של פילט בהקשה אחת.'],
+      ['בוחרים כיוון הדפסה', 'לחץ על ״הנח על פאה״ והקש על הפאה שתשב על המשטח. המידות והתמיכות מתעדכנות, כך שאפשר להשוות בין כיוונים.'],
+      ['משקל משוער ב-PLA', 'לכל מודל מוצגים משקל המודל, משקל התמיכות והסך הכול, לפי הכיוון שבו הנחת אותו ואחוז המילוי שבחרת. זו הערכה לתמחור מהיר, לא תחליף לסלייסר.'],
+    ],
+  },
+  en: {
+    open: 'Open file', choose: 'Choose file',
+    intro: 'Open an STL, 3MF or STEP file to view the model and its outer dimensions.',
+    hint: 'One finger – rotate · Pinch – zoom · Two fingers – pan',
+    modeGroup: 'Measurement type', mFace: 'Faces', mPoint: 'Points', mRound: 'Diameter / radius', clear: 'Clear',
+    layReset: 'Reset', xw: 'X width', yd: 'Y depth', zh: 'Z height', mm: 'mm', g: 'g',
+    wTitle: 'Estimated PLA weight, as laid now', wModel: 'Model', wSupports: 'Supports', wTotal: 'Total', infill: 'Infill',
+    vReset: 'Reset', vTop: 'Top', vFront: 'Front', vSide: 'Side', box: 'Box', measure: 'Measure', lay: 'Lay on face',
+    noGeom: 'The file contains no geometry',
+    meta: (n, step) => n + ' triangles · grid ' + step + ' mm',
+    layDone: 'Model laid on that face. Tap another face to change.', layPrompt: 'Tap the face that should sit on the bed',
+    noVol: 'Cannot estimate weight – the mesh is not closed', notNeeded: 'None needed',
+    stepEngineFail: 'Failed to load the STEP engine', stepLoading: 'Loading STEP engine (about 7 MB, first time only)…',
+    stepConvert: 'Converting STEP to mesh…', stepFail: 'Could not read the STEP file',
+    roundPrompt: 'Tap the wall of a hole, or a fillet', hole: 'Hole', cylinder: 'Cylinder', radius: 'radius',
+    innerR: 'Inner radius', outerR: 'Outer radius', arc: 'arc', diameter: 'diameter',
+    tapFirst: { face: 'Tap the first face on the model', point: 'Tap the first point on the model' },
+    tapSecond: { face: 'Tap the second face', point: 'Tap the second point' },
+    parallel: 'Perpendicular distance between parallel faces',
+    notParallel: (a) => 'Faces are not parallel (angle ' + a + '°) – distance from the tapped point to the plane of the first face',
+    tooBig: 'Mesh is too large for diameter measurement', analyzing: 'Analysing mesh…',
+    noRound: 'No round surface found here – try tapping elsewhere on the curve',
+    unsupported: (ext) => 'Unsupported file type: ' + ext + '. Supported: STL, 3MF, STEP',
+    opening: (name) => 'Opening ' + name + '…', openErr: 'Error opening the file',
+    pendingErr: 'Could not read the file sent to the app',
+    trialLeft: (d) => d === 1 ? 'Free trial: 1 day left' : 'Free trial: ' + d + ' days left', trialBuy: 'Buy',
+    payTitleExpired: 'Your free trial has ended',
+    payBody: 'To keep using Mobile 3D View, a one-time purchase is required. No subscription and no ads.',
+    payBuy: 'Buy', payRestore: 'Restore purchase', payChecking: 'Checking…',
+    payRestoreNone: 'No purchase was found on this Google account.',
+    payPending: 'Your payment is pending. The app will unlock once it is approved.',
+    payUnavailable: 'Purchase is not available right now. Make sure the app was installed from Google Play and you are online.',
+    lockedOpen: 'Your free trial has ended',
+    about: 'About & licences', aboutClose: 'Close', aboutBack: 'Back',
+    aboutText: 'Files you open stay on your device and are not sent to any server. No ads and no tracking. Purchases are handled by Google Play.',
+    aboutOss: 'Open-source components', aboutView: 'View licence',
+    tourHelp: 'Guide', tourNext: 'Next', tourBack: 'Back', tourSkip: 'Skip', tourDone: "Let's start",
+    tourOpenWith: 'You can also tap a file in WhatsApp, email or your file manager and pick this app under "Open with".',
+    tour: [
+      ['Open a model', 'Tap "Open file" and choose an STL, 3MF or STEP file. The file stays on your device and is not sent anywhere.'],
+      ['Look from any angle', 'One finger rotates, pinch zooms, two fingers pan. Top, Front and Side jump to a straight-on view, and Reset returns to the starting view.'],
+      ['Outer dimensions', 'The width, depth and height of the model in millimetres are always shown at the bottom. Box shows or hides the frame around the model.'],
+      ['Measure on the model', 'Tap Measure and pick a type: perpendicular distance between two faces, distance between two points, or the diameter of a hole and radius of a fillet in one tap.'],
+      ['Choose print orientation', 'Tap "Lay on face", then tap the face that should sit on the bed. Dimensions and supports update, so you can compare orientations.'],
+      ['Estimated PLA weight', 'Every model shows the weight of the model, of its supports, and the total, for the way you laid it and the infill you chose. It is an estimate for quick pricing, not a replacement for a slicer.'],
+    ],
+  },
+};
+export const T = S[lang];
+
+export function applyStatic() {
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = T[el.dataset.i18n]; });
+  document.querySelectorAll('[data-i18n-label]').forEach((el) => { el.setAttribute('aria-label', T[el.dataset.i18nLabel]); });
+}
