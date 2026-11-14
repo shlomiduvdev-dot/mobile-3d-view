@@ -29,6 +29,18 @@ public class MainActivity extends Activity implements Billing.Listener {
     private long trialStart;
     private static final String HOST = "viewer.local";
     private static final int PICK = 1;
+    private static final String[] MODEL_MIME_TYPES = {
+            "model/*",
+            "application/sla",
+            "application/vnd.ms-pki.stl",
+            "application/x-stl",
+            "application/step",
+            "application/STEP",
+            "application/x-step",
+            "application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+            "application/x-3mf",
+            "application/octet-stream"
+    };
     private WebView web;
     private volatile Uri pendingUri;
     private volatile String pendingName = "";
@@ -81,6 +93,9 @@ public class MainActivity extends Activity implements Billing.Listener {
                 Intent i = new Intent(Intent.ACTION_GET_CONTENT);
                 i.addCategory(Intent.CATEGORY_OPENABLE);
                 i.setType("*/*");
+                // Android can only filter the picker by file type, not by extension. These are the types
+                // 3D files are reported as; "octet-stream" is how many apps label STL/3MF/STEP files.
+                i.putExtra(Intent.EXTRA_MIME_TYPES, MODEL_MIME_TYPES);
                 try {
                     startActivityForResult(i, PICK);
                 } catch (Exception e) {
