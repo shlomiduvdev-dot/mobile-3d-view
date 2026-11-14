@@ -38,6 +38,48 @@ controls.zoomToCursor = true;
 
 let model = null, boxHelper = null, grid = null, bbox = null, mass = null;
 
+// ---- viewport backdrop: dark by default, light for dark models (or when the user switches) ----
+const BACKDROP = {
+  dark: { bg: 0x14171c, gridMain: 0x4b5563, gridFine: 0x2a3038, box: 0x6fd3ff },
+  light: { bg: 0xe9edf2, gridMain: 0x8a94a3, gridFine: 0xc6ccd5, box: 0x0b7fb8 },
+};
+let lightBg = false, gridInfo = null;
+const backdrop = () => (lightBg ? BACKDROP.light : BACKDROP.dark);
+
+function makeGrid() {
+  const c = backdrop();
+  const g = new THREE.GridHelper(gridInfo.cells * gridInfo.step, gridInfo.cells, c.gridMain, c.gridFine);
+  g.rotation.x = Math.PI / 2;
+  g.position.copy(gridInfo.pos);
+  return g;
+}
+
+function applyBackdrop() {
+  const c = backdrop();
+  scene.background.setHex(c.bg);
+  stage.classList.toggle('light', lightBg);
+  $('bgToggle').setAttribute('aria-pressed', lightBg);
+  if (boxHelper) boxHelper.material.color.setHex(c.box);
+  if (grid && gridInfo) { scene.remove(grid); dispose(grid); grid = makeGrid(); scene.add(grid); }
+}
+
+// average brightness of the model's own colours, weighted by triangle count
+function modelIsDark() {
+  let sum = 0, n = 0;
+  model.traverse((o) => {
+    if (!o.isMesh) return;
+    const g = o.geometry, tris = (g.index ? g.index.count : g.attributes.position.count) / 3;
+    const mats = [].concat(o.material);
+    mats.forEach((m) => {
+      const known = m.color && !m.vertexColors && !m.map;
+      const lum = known ? 0.2126 * m.color.r + 0.7152 * m.color.g + 0.0722 * m.color.b : 0.5;
+      sum += lum * tris / mats.length;
+      n += tris / mats.length;
+    });
+  });
+  return n > 0 && sum / n < 0.12;
+}
+
 function resize() {
   const w = stage.clientWidth, h = stage.clientHeight;
   if (!w || !h) return;
@@ -91,6 +133,7 @@ function show(obj, name) {
   scene.add(model);
   model.updateMatrixWorld(true);
   if (new THREE.Box3().setFromObject(model).isEmpty()) { clearModel(); throw new Error(T.noGeom); }
+  lightBg = modelIsDark();
   baseQuat = model.quaternion.clone();
   basePos = model.position.clone();
   $('fname').textContent = name;
@@ -109,18 +152,18 @@ function refresh() {
   let tris = 0;
   model.traverse((o) => { if (o.isMesh) { const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
 
-  boxHelper = new THREE.Box3Helper(bbox, 0x6fd3ff);
+  boxHelper = new THREE.Box3Helper(bbox, backdrop().box);
   boxHelper.visible = $('boxToggle').getAttribute('aria-pressed') === 'true';
   scene.add(boxHelper);
 
   const span = Math.max(size.x, size.y) * 2;
   const step = Math.pow(10, Math.floor(Math.log10(span / 4 || 1)));
   const cells = Math.max(2, Math.ceil(span / step / 2) * 2);
-  grid = new THREE.GridHelper(cells * step, cells, 0x4b5563, 0x2a3038);
-  grid.rotation.x = Math.PI / 2;
   const c = bbox.getCenter(new THREE.Vector3());
-  grid.position.set(c.x, c.y, bbox.min.z);
+  gridInfo = { cells, step, pos: new THREE.Vector3(c.x, c.y, bbox.min.z) };
+  grid = makeGrid();
   scene.add(grid);
+  applyBackdrop();
 
   $('dx').textContent = fmt(size.x);
   $('dy').textContent = fmt(size.y);
@@ -557,6 +600,7 @@ function setTool(tool) {
 }
 $('measureToggle').addEventListener('click', () => setTool(measuring ? null : 'measure'));
 $('layToggle').addEventListener('click', () => setTool(laying ? null : 'lay'));
+$('bgToggle').addEventListener('click', () => { lightBg = !lightBg; applyBackdrop(); });
 $('layreset').addEventListener('click', resetLay);
 $('mclear').addEventListener('click', () => { clearMeasure(); });
 document.querySelectorAll('[data-mode]').forEach((x) => x.addEventListener('click', () => { mode = x.dataset.mode; clearMeasure(); }));

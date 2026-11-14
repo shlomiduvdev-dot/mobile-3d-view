@@ -112,6 +112,8 @@
   #payrestore, #payclose { min-height:44px; background:transparent; }
   #payclose[hidden] { display:none; }
   #paynote { min-height:1.5em; font-size:14px; color:#ffd58a; }
+  #stage.light #hint { color:#4b5563; }
+  #bgToggle[aria-pressed="true"] { border-color:#e9edf2; color:#e9edf2; background:#3a424e; }
   .note { font-size:11px; color:var(--muted); margin-top:8px; text-align:center; }
 </style>
 </head>
@@ -167,6 +169,7 @@
   <div class="views tools">
     <button id="measureToggle" aria-pressed="false" data-i18n="measure">מדידה</button>
     <button id="layToggle" aria-pressed="false" data-i18n="lay">הנח על פאה</button>
+    <button id="bgToggle" aria-pressed="false" data-i18n="lightBg">רקע בהיר</button>
   </div>
 </footer>
 <div id="paywall" role="dialog" aria-modal="true" hidden>
@@ -211,7 +214,7 @@
   <div class="tourcard aboutcard">
     <h2 id="abouttitle"></h2>
     <div id="aboutmain">
-      <p class="ver" dir="ltr">Mobile 3D View 1.13</p>
+      <p class="ver" dir="ltr">Mobile 3D View 1.14</p>
       <p id="abouttext"></p>
       <h3 id="aboutoss"></h3>
       <ul id="aboutlibs"></ul>
