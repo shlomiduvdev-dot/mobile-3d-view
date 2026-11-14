@@ -219,13 +219,20 @@ function renderWeight() {
   $('wtitle').textContent = mass && !w ? T.noVol : T.wTitle;
   if (!w) {
     const v = mass ? '–' : '…';
-    set('wpart', v, false); set('wsup', v, false); set('wtotal', v, false);
+    set('wpart', v, false); set('wsup', v, false); set('wtotal', v, false); set('wtime', v, false);
     return;
   }
   set('wpart', g1(w.part), true);
   if (w.needsSupport) set('wsup', g1(w.support), true);
   else { set('wsup', T.notNeeded, false); $('wsupcard').classList.add('dim-off'); }
   set('wtotal', g1(w.part + (w.needsSupport ? w.support : 0)), true);
+  const min = Math.round(w.seconds / 60);
+  if (min < 60) { set('wtime', String(min), true); $('wtimeu').textContent = T.minutes; }
+  else {
+    const r = Math.round(min / 5) * 5;
+    set('wtime', Math.floor(r / 60) + ':' + String(r % 60).padStart(2, '0'), true);
+    $('wtimeu').textContent = T.hours;
+  }
 }
 
 function parseSTL(buf) {

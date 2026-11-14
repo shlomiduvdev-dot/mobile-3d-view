@@ -64,10 +64,13 @@
   .infill { display:flex; align-items:center; gap:4px; flex:0 0 auto; }
   .infill select { font:inherit; font-size:14px; font-weight:700; color:var(--text); background:#14171c; border:1px solid var(--line); border-radius:8px; padding:0 4px; min-height:32px; }
   .infill select option { color:#000; }
-  .weights { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:6px; }
-  .weights .val { font-size:18px; }
+  .weights { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:6px; }
+  .weights .dim { padding:8px 7px; min-width:0; }
+  .weights .lbl { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .weights .val { font-size:17px; white-space:nowrap; }
+  .weights .val small { font-size:11px; margin-inline-start:2px; }
   .weights .total { border-color:var(--accent); }
-  .dim-off .val { font-size:14px; color:var(--muted); font-weight:600; padding-top:4px; }
+  .dim-off .val { font-size:12px; color:var(--muted); font-weight:600; padding-top:4px; }
   [dir=ltr] #fname, [dir=ltr] .dim .val, [dir=ltr] #mtext span { text-align:left; }
   [dir=ltr] #mtext span.rtl { direction:ltr; }
   #help { width:44px; padding:0; font-size:18px; font-weight:700; border-radius:50%; flex:0 0 auto; }
@@ -158,6 +161,7 @@
     <div class="dim"><div class="lbl" data-i18n="wModel">המודל</div><div class="val"><span id="wpart">–</span><small id="wpartu" data-i18n="g">גרם</small></div></div>
     <div class="dim" id="wsupcard"><div class="lbl" data-i18n="wSupports">תמיכות</div><div class="val"><span id="wsup">–</span><small id="wsupu" data-i18n="g">גרם</small></div></div>
     <div class="dim total"><div class="lbl" data-i18n="wTotal">סה״כ</div><div class="val"><span id="wtotal">–</span><small id="wtotalu" data-i18n="g">גרם</small></div></div>
+    <div class="dim"><div class="lbl" data-i18n="wTime">זמן הדפסה</div><div class="val"><span id="wtime">–</span><small id="wtimeu"></small></div></div>
   </div>
   <div class="views">
     <button data-view="iso" data-i18n="vReset">איפוס</button>
@@ -214,7 +218,7 @@
   <div class="tourcard aboutcard">
     <h2 id="abouttitle"></h2>
     <div id="aboutmain">
-      <p class="ver" dir="ltr">Mobile 3D View 1.15</p>
+      <p class="ver" dir="ltr">Mobile 3D View 1.16</p>
       <p id="abouttext"></p>
       <h3 id="aboutoss"></h3>
       <ul id="aboutlibs"></ul>

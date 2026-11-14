@@ -65,7 +65,7 @@ export function massProps(model, bbox) {
       else if (evN[e] < OVERHANG_NZ && evZ[e] - below > MIN_GAP) supportVol += (evZ[e] - below) * cell * cell;
     }
   }
-  return { volume: Math.abs(vol), area, supportVol };
+  return { volume: Math.abs(vol), area, supportVol, height: size.z };
 }
 
 export function weights(m, infill) {
@@ -74,5 +74,20 @@ export function weights(m, infill) {
   const inner = m.volume * k * k * k;
   const part = ((m.volume - inner) + infill * inner) * PLA_DENSITY / 1000;
   const support = m.supportVol * SUPPORT_DENSITY * PLA_DENSITY / 1000;
-  return { part, support, needsSupport: support >= 0.1 && m.supportVol > 0.005 * m.volume };
+  const needsSupport = support >= 0.1 && m.supportVol > 0.005 * m.volume;
+  return { part, support, needsSupport, seconds: printSeconds(m, m.volume - inner, infill * inner, needsSupport ? m.supportVol * SUPPORT_DENSITY : 0) };
+}
+
+// Rough print time on a current Bambu Lab printer (0.4 mm nozzle, 0.20 mm Standard profile, PLA).
+// Effective flow rates are well below the nominal speeds because of acceleration, cooling and travel;
+// the constants are tuned so a 3DBenchy comes out at about 39 minutes, as Bambu Studio reports.
+const LAYER_MM = 0.2;
+const PREP_S = 390;          // heating, bed levelling and calibration before the first layer
+const PER_LAYER_S = 3;       // travel, seam and layer-change overhead
+const FLOW_SHELL = 9;        // mm3/s through walls and top/bottom skins
+const FLOW_INFILL = 14;      // mm3/s through sparse infill
+const FLOW_SUPPORT = 8;      // mm3/s through supports
+function printSeconds(m, shellVol, infillVol, supportVol) {
+  const layers = Math.ceil((m.height || 0) / LAYER_MM);
+  return PREP_S + shellVol / FLOW_SHELL + infillVol / FLOW_INFILL + supportVol / FLOW_SUPPORT + layers * PER_LAYER_S;
 }
