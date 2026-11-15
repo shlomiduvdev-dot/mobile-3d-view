@@ -20,6 +20,8 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 
 public class MainActivity extends Activity implements Billing.Listener {
@@ -214,6 +216,31 @@ public class MainActivity extends Activity implements Billing.Listener {
         }
     }
 
+    private void sharePicture(String base64, String caption) {
+        try {
+            byte[] bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
+            File dir = new File(getCacheDir(), "shared");
+            dir.mkdirs();
+            File file = new File(dir, "mobile-3d-view.jpg");
+            FileOutputStream out = new FileOutputStream(file);
+            try {
+                out.write(bytes);
+            } finally {
+                out.close();
+            }
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(this, getPackageName() + ".files", file);
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("image/jpeg");
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            send.putExtra(Intent.EXTRA_TEXT, caption);
+            send.setClipData(android.content.ClipData.newRawUri("", uri));
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(send, null));
+        } catch (Exception e) {
+            if (pageReady) web.evaluateJavascript("window.__shareFailed&&window.__shareFailed()", null);
+        }
+    }
+
     private WebResourceResponse notFound() {
         WebResourceResponse r = new WebResourceResponse("text/plain", "utf-8", new ByteArrayInputStream(new byte[0]));
         r.setStatusCodeAndReasonPhrase(404, "Not Found");
@@ -256,6 +283,17 @@ public class MainActivity extends Activity implements Billing.Listener {
                 @Override
                 public void run() {
                     billing.sync("restore");
+                }
+            });
+        }
+
+        /** Shares a JPEG (base64) through the system share sheet, e.g. to WhatsApp. */
+        @JavascriptInterface
+        public void shareImage(final String base64, final String caption) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    sharePicture(base64, caption);
                 }
             });
         }

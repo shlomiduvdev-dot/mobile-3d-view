@@ -8,6 +8,9 @@ import { massProps, weights } from './mass.js';
 import { T, lang, applyStatic } from './i18n.js';
 import { initTour } from './tour.js';
 import { initAccess, isLocked } from './access.js';
+import { listRecent, saveRecent, loadRecent, removeRecent } from './recent.js';
+import { overhangTriangles, candidateDirections } from './orient.js';
+import { composeShare } from './share.js';
 
 applyStatic();
 
@@ -102,6 +105,7 @@ function dispose(obj) {
 
 function clearModel() {
   clearMeasure();
+  clearOverhang();
   laid = false;
   if ($('lay')) renderLay();
   for (const o of [model, boxHelper, grid]) if (o) { scene.remove(o); dispose(o); }
@@ -147,7 +151,7 @@ function refresh() {
   clearMeasure();
   resetTopo();
   model.updateMatrixWorld(true);
-  bbox = new THREE.Box3().setFromObject(model);
+  bbox = new THREE.Box3().setFromObject(model, true);
   const size = bbox.getSize(new THREE.Vector3());
   let tris = 0;
   model.traverse((o) => { if (o.isMesh) { const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
@@ -164,6 +168,7 @@ function refresh() {
   grid = makeGrid();
   scene.add(grid);
   applyBackdrop();
+  drawOverhang();
 
   $('dx').textContent = fmt(size.x);
   $('dy').textContent = fmt(size.y);
@@ -181,12 +186,31 @@ function refresh() {
   }, 60);
 }
 
+// ---- red marking of the areas that need support ----
+const ohGroup = new THREE.Group();
+scene.add(ohGroup);
+let showOverhang = true;
+function clearOverhang() {
+  while (ohGroup.children.length) { const o = ohGroup.children.pop(); o.geometry.dispose(); o.material.dispose(); }
+}
+function drawOverhang() {
+  clearOverhang();
+  if (!showOverhang || !model || !bbox) return;
+  const tris = overhangTriangles(model, bbox);
+  if (!tris.length) return;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(tris, 3));
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true, opacity: 0.8, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
+  m.renderOrder = 5;
+  ohGroup.add(m);
+}
+
 // ---- lay the model on a tapped face ----
-let laying = false, baseQuat = null, basePos = null, laid = false;
+let laying = false, baseQuat = null, basePos = null, laid = false, layNote = '';
 function renderLay() {
   $('lay').hidden = !laying;
   $('layToggle').setAttribute('aria-pressed', laying);
-  $('laytext').textContent = laid ? T.layDone : T.layPrompt;
+  $('laytext').textContent = layNote || (laid ? T.layDone : T.layPrompt);
   $('layreset').disabled = !laid;
 }
 function layOnFace(clientX, clientY) {
@@ -197,7 +221,37 @@ function layOnFace(clientX, clientY) {
   const q = new THREE.Quaternion().setFromUnitVectors(hit.normal, new THREE.Vector3(0, 0, -1));
   model.quaternion.premultiply(q);
   model.position.applyQuaternion(q);
-  laid = true;
+  laid = true; layNote = '';
+  refresh();
+  renderLay();
+}
+
+// try the six axis directions and the largest flat faces, keep the one needing the least support
+async function autoOrient() {
+  if (!model) return;
+  layNote = T.autoWorking; renderLay();
+  await new Promise((r) => setTimeout(r, 40));
+  const current = model;
+  let tris = 0;
+  model.traverse((o) => { if (o.isMesh) { const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
+  const dirs = candidateDirections(model, tris > 400000 ? 3 : 8);
+  const q0 = model.quaternion.clone(), p0 = model.position.clone(), down = new THREE.Vector3(0, 0, -1);
+  let best = null, tol = 0;
+  for (const d of dirs) {
+    const q = new THREE.Quaternion().setFromUnitVectors(d, down);
+    model.quaternion.copy(q0).premultiply(q);
+    model.position.copy(p0).applyQuaternion(q);
+    model.updateMatrixWorld(true);
+    const m = massProps(model, new THREE.Box3().setFromObject(model, true));
+    if (!best) tol = Math.max(m.volume * 0.01, 20);
+    const cand = { q, support: m.supportVol, height: m.height, first: !best };
+    if (!best || cand.support < best.support - tol || (Math.abs(cand.support - best.support) <= tol && cand.height < best.height - 0.01)) best = cand;
+  }
+  if (model !== current) return;
+  model.quaternion.copy(q0).premultiply(best.q);
+  model.position.copy(p0).applyQuaternion(best.q);
+  if (!best.first) laid = true;
+  layNote = best.first ? T.autoSame : T.autoDone;
   refresh();
   renderLay();
 }
@@ -205,14 +259,16 @@ function resetLay() {
   if (!model || !laid) return;
   model.quaternion.copy(baseQuat);
   model.position.copy(basePos);
-  laid = false;
+  laid = false; layNote = '';
   refresh();
   renderLay();
 }
 
 const g1 = (v) => (v >= 100 ? Math.round(v).toString() : v.toFixed(1));
+let lastWeights = null;
 function renderWeight() {
   const w = mass && weights(mass, Number($('infill').value) / 100);
+  lastWeights = w || null;
   const set = (id, v, unit) => { $(id).textContent = v; $(id + 'u').hidden = !unit; };
   $('wsupcard').classList.remove('dim-off');
   document.querySelector('.whead').classList.toggle('err', !!mass && !w);
@@ -401,7 +457,11 @@ function renderMeasureText() {
     else t.innerHTML = '<b>R ' + fmt(r.r) + '</b> ' + T.mm + ' <span class="rtl">' + (r.concave ? T.innerR : T.outerR) + ' · ' + T.arc + ' ' + Math.round(r.arc) + '° · ' + T.diameter + ' ' + fmt(2 * r.r) + ' ' + T.mm + '</span>';
   } else if (picks.length === 0) t.textContent = T.tapFirst[mode];
   else if (picks.length === 1) t.textContent = T.tapSecond[mode];
-  else if (mode === 'face') {
+  else if (mode === 'angle') {
+    const between = THREE.MathUtils.radToDeg(Math.acos(THREE.MathUtils.clamp(picks[0].normal.dot(picks[1].normal), -1, 1)));
+    if (between < 0.5 || between > 179.5) t.innerHTML = '<b>0°</b> <span class="rtl">' + T.angleParallel + '</span>';
+    else t.innerHTML = '<b>' + (180 - between).toFixed(1) + '°</b> <span class="rtl">' + T.angleNote(between.toFixed(1)) + '</span>';
+  } else if (mode === 'face') {
     const r = faceResult();
     t.innerHTML = '<b>' + fmt(r.dist) + '</b> ' + T.mm + ' <span class="rtl">' + (r.parallel ? T.parallel : T.notParallel(r.angle.toFixed(1))) + '</span>';
   } else {
@@ -448,9 +508,9 @@ function drawMeasure() {
   emptyGroup();
   if (!picks.length) return;
   if (mode === 'round') drawRound(picks[0]);
-  else if (mode === 'face') {
+  else if (mode === 'face' || mode === 'angle') {
     picks.forEach((p, i) => overlayTris(p.tris, FACE_COLORS[i]));
-    if (picks.length === 2) { const r = faceResult(); overlayLine([r.from, r.to]); }
+    if (mode === 'face' && picks.length === 2) { const r = faceResult(); overlayLine([r.from, r.to]); }
   } else {
     overlayLine(picks.map((p) => p.point));
   }
@@ -495,7 +555,7 @@ function pick(clientX, clientY) {
   const va = new THREE.Vector3().fromBufferAttribute(pos, hit.face.a).applyMatrix4(mw);
   const vb = new THREE.Vector3().fromBufferAttribute(pos, hit.face.b).applyMatrix4(mw);
   const vc = new THREE.Vector3().fromBufferAttribute(pos, hit.face.c).applyMatrix4(mw);
-  if (mode === 'face') {
+  if (mode === 'face' || mode === 'angle') {
     const normal = vb.clone().sub(va).cross(vc.clone().sub(va)).normalize();
     if (normal.lengthSq() === 0) return null;
     return { point: hit.point.clone(), normal, tris: coplanarTris(hit.object, hit.point, normal) };
@@ -571,8 +631,64 @@ async function openBuffer(buf, name) {
 async function run(name, getBuf) {
   if (isLocked()) { status(T.lockedOpen, true); return; }
   status(T.opening(name));
-  try { await openBuffer(await getBuf(), name); }
-  catch (e) { console.error(e); status(e.message || T.openErr, true); }
+  try {
+    const buf = await getBuf();
+    await openBuffer(buf, name);
+    saveRecent(name, buf).then(renderRecentButton);
+  } catch (e) { console.error(e); status(e.message || T.openErr, true); }
+}
+
+// ---- recently opened files ----
+const fmtSize = (b) => (b >= 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB');
+async function renderRecentButton() {
+  const any = (await listRecent()).length > 0;
+  $('recentEmptyBtn').hidden = !any;
+}
+async function openRecentList() {
+  const files = await listRecent();
+  const ul = $('recentlist');
+  ul.innerHTML = '';
+  $('recentempty').hidden = files.length > 0;
+  for (const f of files) {
+    const li = document.createElement('li');
+    const open = document.createElement('button');
+    open.className = 'ropen';
+    const nm = document.createElement('b'); nm.textContent = f.name;
+    const meta = document.createElement('span');
+    meta.textContent = fmtSize(f.size) + ' · ' + new Date(f.time).toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-GB');
+    open.append(nm, meta);
+    open.addEventListener('click', () => {
+      $('recent').hidden = true;
+      run(f.name, async () => { const b = await loadRecent(f.name); if (!b) throw new Error(T.recentGone); return b; });
+    });
+    const del = document.createElement('button');
+    del.className = 'rdel'; del.textContent = '×'; del.setAttribute('aria-label', T.recentRemove + ' ' + f.name);
+    del.addEventListener('click', async () => { await removeRecent(f.name); openRecentList(); renderRecentButton(); });
+    li.append(open, del);
+    ul.append(li);
+  }
+  $('recent').hidden = false;
+}
+
+// ---- share a picture of the current view ----
+function shareImage() {
+  if (!model) return;
+  renderer.render(scene, camera);
+  const lines = ['X ' + $('dx').textContent + ' · Y ' + $('dy').textContent + ' · Z ' + $('dz').textContent + ' ' + T.mm];
+  const w = lastWeights;
+  if (w) {
+    lines.push(T.shareWeight(g1(w.part + (w.needsSupport ? w.support : 0)), w.needsSupport ? g1(w.support) : '', $('infill').value));
+    lines.push(T.shareTime($('wtime').textContent + ' ' + $('wtimeu').textContent));
+  }
+  if (measuring && picks.length && $('mtext').textContent) lines.push(T.measure + ': ' + $('mtext').textContent.replace(/\s+/g, ' ').replace(/°/g, '°\u200e').trim());
+  const name = $('fname').textContent;
+  const url = composeShare(renderer.domElement, { title: name, lines, brand: 'Mobile 3D View', rtl: lang === 'he' });
+  const host = window.AndroidHost;
+  if (host && host.shareImage) {
+    try { host.shareImage(url.slice(url.indexOf(',') + 1), name + '\n' + lines.join('\n')); return; } catch (e) { console.error(e); }
+  }
+  $('shareimg').src = url;
+  $('shareview').hidden = false;
 }
 
 function openFile(file) { if (file) return run(file.name, () => file.arrayBuffer()); }
@@ -599,6 +715,7 @@ $('boxToggle').addEventListener('click', (e) => {
 function setTool(tool) {
   measuring = tool === 'measure';
   laying = tool === 'lay';
+  layNote = '';
   $('measureToggle').setAttribute('aria-pressed', measuring);
   if (!measuring) clearMeasure();
   renderMeasureText();
@@ -609,13 +726,26 @@ $('measureToggle').addEventListener('click', () => setTool(measuring ? null : 'm
 $('layToggle').addEventListener('click', () => setTool(laying ? null : 'lay'));
 $('bgToggle').addEventListener('click', () => { lightBg = !lightBg; applyBackdrop(); });
 $('layreset').addEventListener('click', resetLay);
+$('layauto').addEventListener('click', autoOrient);
+$('ohToggle').addEventListener('click', (e) => {
+  showOverhang = !showOverhang;
+  e.currentTarget.setAttribute('aria-pressed', showOverhang);
+  drawOverhang();
+});
+$('share').addEventListener('click', shareImage);
+$('shareclose').addEventListener('click', () => { $('shareview').hidden = true; });
+$('recentBtn').addEventListener('click', openRecentList);
+$('recentEmptyBtn').addEventListener('click', openRecentList);
+$('recentclose').addEventListener('click', () => { $('recent').hidden = true; });
+window.__shareFailed = () => status(T.shareFail, true);
+renderRecentButton();
 $('mclear').addEventListener('click', () => { clearMeasure(); });
 document.querySelectorAll('[data-mode]').forEach((x) => x.addEventListener('click', () => { mode = x.dataset.mode; clearMeasure(); }));
 $('infill').addEventListener('change', renderWeight);
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => { e.preventDefault(); openFile(e.dataTransfer.files[0]); });
 
-window.__viewer = { openFile, openPending, tree: () => { const out = []; const walk = (o, d) => { out.push('  '.repeat(d) + o.type + ' name=' + JSON.stringify(o.name) + ' ud=' + JSON.stringify(o.userData) + (o.isMesh ? ' tris=' + (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3 + ' groups=' + o.geometry.groups.length : '')); o.children.forEach((c) => walk(c, d + 1)); }; if (model) walk(model, 0); return out.join('\n'); }, colors: () => { const out = []; if (model) model.traverse((o) => { if (o.isMesh) [].concat(o.material).forEach((m) => out.push('#' + m.color.getHexString() + (m.vertexColors ? '+vc' : ''))); }); return out.join(' '); }, project: (x, y, z) => { const r = renderer.domElement.getBoundingClientRect(); const p = toScreen(new THREE.Vector3(x, y, z), r); return [p.x + r.left, p.y + r.top]; } };
+window.__viewer = { openFile, openPending, overhangTris: () => (ohGroup.children[0] ? ohGroup.children[0].geometry.attributes.position.count / 3 : 0), tree: () => { const out = []; const walk = (o, d) => { out.push('  '.repeat(d) + o.type + ' name=' + JSON.stringify(o.name) + ' ud=' + JSON.stringify(o.userData) + (o.isMesh ? ' tris=' + (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3 + ' groups=' + o.geometry.groups.length : '')); o.children.forEach((c) => walk(c, d + 1)); }; if (model) walk(model, 0); return out.join('\n'); }, colors: () => { const out = []; if (model) model.traverse((o) => { if (o.isMesh) [].concat(o.material).forEach((m) => out.push('#' + m.color.getHexString() + (m.vertexColors ? '+vc' : ''))); }); return out.join(' '); }, project: (x, y, z) => { const r = renderer.domElement.getBoundingClientRect(); const p = toScreen(new THREE.Vector3(x, y, z), r); return [p.x + r.left, p.y + r.top]; } };
 openPending();
 initAccess((acc) => { if (acc.state === 'owned') { status(''); openPending(); } resize(); });
 initTour();

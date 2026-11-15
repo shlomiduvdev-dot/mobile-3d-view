@@ -13,8 +13,8 @@ android {
         applicationId 'com.dfus3d.mobile3dview'
         minSdk 24
         targetSdk 36
-        versionCode 18
-        versionName '1.17'
+        versionCode 19
+        versionName '1.18'
     }
 
     signingConfigs {
@@ -55,4 +55,5 @@ android {
 
 dependencies {
     implementation 'com.android.billingclient:billing:8.2.1'
+    implementation 'androidx.core:core:1.13.1'
 }

@@ -117,6 +117,26 @@
   #paynote { min-height:1.5em; font-size:14px; color:#ffd58a; }
   #stage.light #hint { color:#4b5563; }
   #bgToggle[aria-pressed="true"] { border-color:#e9edf2; color:#e9edf2; background:#3a424e; }
+  .iconbtn { width:44px; padding:0; border-radius:50%; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; }
+  .views button { min-height:40px; }
+  .modes { flex-wrap:wrap; }
+  .modes [data-mode="round"] { flex:1.7; }
+  #lay button { flex:0 0 auto; }
+  #layauto { min-height:40px; padding:0 10px; font-size:13px; border-color:#3ddc97; color:#3ddc97; }
+  #ohToggle[aria-pressed="true"] { border-color:#ff6b61; color:#ff8f87; }
+  #recentEmptyBtn { min-height:44px; padding:0 20px; font-size:15px; }
+  #recentEmptyBtn[hidden] { display:none; }
+  .sheet { position:fixed; inset:0; z-index:22; background:rgba(8,10,13,.82); display:flex; align-items:center; justify-content:center; padding:16px; }
+  .sheet[hidden] { display:none; }
+  #recentlist { list-style:none; margin:0; padding:0; overflow:auto; }
+  #recentlist li { display:flex; align-items:stretch; gap:6px; border-top:1px solid var(--line); padding:6px 0; }
+  #recentlist .ropen { flex:1; min-width:0; text-align:start; background:transparent; border:0; padding:6px 4px; display:flex; flex-direction:column; gap:2px; min-height:48px; }
+  #recentlist .ropen b { font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; direction:ltr; text-align:start; }
+  [dir=rtl] #recentlist .ropen b { text-align:right; }
+  #recentlist .ropen span { font-size:12px; color:var(--muted); }
+  #recentlist .rdel { flex:0 0 44px; background:transparent; border:0; color:var(--muted); font-size:22px; }
+  #shareimg { width:100%; max-height:60vh; object-fit:contain; border-radius:10px; background:#14171c; }
+  .aboutcard .hint { color:var(--muted); font-size:13px; margin-top:8px; text-align:center; }
   .note { font-size:11px; color:var(--muted); margin-top:8px; text-align:center; }
 </style>
 </head>
@@ -124,6 +144,7 @@
 <div id="trialbar" hidden><span id="trialtext"></span><button id="trialbuy"></button></div>
 <header>
   <div class="name"><div id="fname">Mobile 3D View</div><div id="meta">STL · 3MF · STEP</div></div>
+  <button id="recentBtn" class="iconbtn" data-i18n-label="recent" aria-label="קבצים אחרונים"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
   <button id="help" aria-label="מדריך">?</button>
   <label class="btn primary filebtn"><span data-i18n="open">פתח קובץ</span><input type="file" class="file" accept=".stl,.3mf,.step,.stp,model/stl,model/3mf,model/step,application/octet-stream"></label>
 </header>
@@ -132,6 +153,7 @@
     <h1 dir="ltr">Mobile 3D View</h1>
     <p data-i18n="intro">פתח קובץ STL, 3MF או STEP כדי לראות את המודל ואת המידות החיצוניות שלו.</p>
     <label class="btn primary filebtn"><span data-i18n="choose">בחר קובץ</span><input type="file" class="file" accept=".stl,.3mf,.step,.stp,model/stl,model/3mf,model/step,application/octet-stream"></label>
+    <button id="recentEmptyBtn" data-i18n="recent" hidden>קבצים אחרונים</button>
   </div>
   <div id="status" hidden role="status"></div>
   <div id="hint" data-i18n="hint">אצבע אחת – סיבוב · צביטה – זום · שתי אצבעות – הזזה</div>
@@ -141,12 +163,13 @@
     <div class="modes" role="group" data-i18n-label="modeGroup" aria-label="סוג מדידה">
       <button data-mode="face" aria-pressed="true" data-i18n="mFace">בין פאות</button>
       <button data-mode="point" aria-pressed="false" data-i18n="mPoint">בין נקודות</button>
-      <button data-mode="round" aria-pressed="false" data-i18n="mRound">קוטר / רדיוס</button>
+      <button data-mode="round" aria-pressed="false" data-i18n="mRound">קוטר/רדיוס</button>
+      <button data-mode="angle" aria-pressed="false" data-i18n="mAngle">זווית</button>
       <button id="mclear" data-i18n="clear">נקה</button>
     </div>
     <div id="mtext" role="status"></div>
   </div>
-  <div id="lay" hidden><div id="laytext" role="status"></div><button id="layreset" data-i18n="layReset">החזר למקור</button></div>
+  <div id="lay" hidden><div id="laytext" role="status"></div><button id="layauto" data-i18n="layAuto">אוטומטי</button><button id="layreset" data-i18n="layReset">החזר למקור</button></div>
   <div class="dims">
     <div class="dim"><div class="lbl"><i style="background:var(--x)"></i><span data-i18n="xw">X רוחב</span></div><div class="val"><span id="dx">–</span><small data-i18n="mm">מ״מ</small></div></div>
     <div class="dim"><div class="lbl"><i style="background:var(--y)"></i><span data-i18n="yd">Y עומק</span></div><div class="val"><span id="dy">–</span><small data-i18n="mm">מ״מ</small></div></div>
@@ -168,14 +191,33 @@
     <button data-view="top" data-i18n="vTop">מעל</button>
     <button data-view="front" data-i18n="vFront">חזית</button>
     <button data-view="side" data-i18n="vSide">צד</button>
+  </div>
+  <div class="views tools">
     <button id="boxToggle" aria-pressed="true" data-i18n="box">תיבה</button>
+    <button id="bgToggle" aria-pressed="false" data-i18n="lightBg">רקע בהיר</button>
+    <button id="ohToggle" aria-pressed="true" data-i18n="overhang">אזורים תלויים</button>
   </div>
   <div class="views tools">
     <button id="measureToggle" aria-pressed="false" data-i18n="measure">מדידה</button>
     <button id="layToggle" aria-pressed="false" data-i18n="lay">הנח על פאה</button>
-    <button id="bgToggle" aria-pressed="false" data-i18n="lightBg">רקע בהיר</button>
+    <button id="share" data-i18n="share">שיתוף</button>
   </div>
 </footer>
+<div id="recent" class="sheet" role="dialog" aria-modal="true" hidden>
+  <div class="tourcard aboutcard">
+    <h2 data-i18n="recent">קבצים אחרונים</h2>
+    <p id="recentempty" data-i18n="recentEmpty" hidden>עדיין לא נפתחו קבצים.</p>
+    <ul id="recentlist"></ul>
+    <button id="recentclose" class="primary" data-i18n="aboutClose">סגור</button>
+  </div>
+</div>
+<div id="shareview" class="sheet" role="dialog" aria-modal="true" hidden>
+  <div class="tourcard aboutcard">
+    <img id="shareimg" alt="">
+    <p class="hint" data-i18n="shareHint">לחיצה ארוכה על התמונה כדי לשמור או לשתף אותה</p>
+    <button id="shareclose" class="primary" data-i18n="aboutClose">סגור</button>
+  </div>
+</div>
 <div id="paywall" role="dialog" aria-modal="true" hidden>
   <div class="tourcard paycard">
     <div id="payicon"><svg width="70" height="120" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="40 66 224 384"><defs>
@@ -218,7 +260,7 @@
   <div class="tourcard aboutcard">
     <h2 id="abouttitle"></h2>
     <div id="aboutmain">
-      <p class="ver" dir="ltr">Mobile 3D View 1.17</p>
+      <p class="ver" dir="ltr">Mobile 3D View 1.18</p>
       <p id="abouttext"></p>
       <h3 id="aboutoss"></h3>
       <ul id="aboutlibs"></ul>
