@@ -287,6 +287,24 @@ public class MainActivity extends Activity implements Billing.Listener {
             });
         }
 
+        /** Opens the phone's email app with a new message to the developer. */
+        @JavascriptInterface
+        public void contact(final String to, final String subject, final String body) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Intent mail = new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + to));
+                        mail.putExtra(Intent.EXTRA_SUBJECT, subject);
+                        mail.putExtra(Intent.EXTRA_TEXT, body);
+                        startActivity(mail);
+                    } catch (Exception e) {
+                        if (pageReady) web.evaluateJavascript("window.__contactFailed&&window.__contactFailed()", null);
+                    }
+                }
+            });
+        }
+
         /** Shares a JPEG (base64) through the system share sheet, e.g. to WhatsApp. */
         @JavascriptInterface
         public void shareImage(final String base64, final String caption) {

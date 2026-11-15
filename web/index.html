@@ -88,7 +88,13 @@
   #tourdots i.on { background:var(--accent); width:20px; border-radius:4px; }
   .tournav { display:flex; gap:8px; }
   .tournav button { flex:1; min-height:48px; font-size:16px; }
-  #aboutlink { background:transparent; border:0; color:var(--muted); font-size:13px; text-decoration:underline; min-height:40px; margin-top:6px; }
+  .tourlinks { display:flex; justify-content:center; gap:18px; margin-top:6px; }
+  #aboutlink, #contactlink { background:transparent; border:0; color:var(--muted); font-size:13px; text-decoration:underline; min-height:40px; padding:0 4px; }
+  .contactrow { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  #contactsend { min-height:42px; padding:0 14px; font-size:14px; border-color:var(--accent); color:var(--accent); }
+  #contactmail { font-size:14px; color:#cfd6df; user-select:all; }
+  #contactnote { font-size:13px; color:#ffd58a; min-height:0; margin:6px 0 0; }
+  #contactnote:empty { display:none; }
   #about { position:fixed; inset:0; z-index:21; background:rgba(8,10,13,.82); display:flex; align-items:center; justify-content:center; padding:16px; }
   #about[hidden] { display:none; }
   .aboutcard { text-align:start; display:flex; flex-direction:column; max-height:100%; padding-top:18px; }
@@ -253,15 +259,19 @@
     <p id="tourbody"></p>
     <div id="tourdots"></div>
     <div class="tournav"><button id="tourback"></button><button id="tournext" class="primary"></button></div>
-    <button id="aboutlink"></button>
+    <div class="tourlinks"><button id="contactlink"></button><button id="aboutlink"></button></div>
   </div>
 </div>
 <div id="about" role="dialog" aria-modal="true" hidden>
   <div class="tourcard aboutcard">
     <h2 id="abouttitle"></h2>
     <div id="aboutmain">
-      <p class="ver" dir="ltr">Mobile 3D View 1.18</p>
+      <p class="ver" dir="ltr">Mobile 3D View 1.19</p>
       <p id="abouttext"></p>
+      <h3 id="contacttitle"></h3>
+      <p id="contacttext"></p>
+      <div class="contactrow"><button id="contactsend"></button><span id="contactmail" dir="ltr">s@dfus3d.com</span></div>
+      <p id="contactnote" role="status"></p>
       <h3 id="aboutoss"></h3>
       <ul id="aboutlibs"></ul>
     </div>

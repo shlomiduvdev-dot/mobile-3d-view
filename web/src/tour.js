@@ -62,6 +62,25 @@ export function initTour() {
     try { const r = await fetch('licenses/' + b.dataset.lic + '.txt'); $('lictext').textContent = r.ok ? await r.text() : '–'; }
     catch (err) { $('lictext').textContent = '–'; }
   });
+  // contact by email, with the app version filled in so problems are easier to track down
+  const EMAIL = $('contactmail').textContent.trim();
+  const openAbout = () => { $('tour').hidden = true; showList(true); $('about').hidden = false; };
+  const sendMail = () => {
+    const subject = T.contactSubject;
+    const body = '\n\n\n--\n' + document.querySelector('.ver').textContent + ' · ' + navigator.userAgent;
+    $('contactnote').textContent = '';
+    try {
+      if (window.AndroidHost && window.AndroidHost.contact) { window.AndroidHost.contact(EMAIL, subject, body); return; }
+    } catch (e) { /* fall through to a plain mail link */ }
+    location.href = 'mailto:' + EMAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  };
+  window.__contactFailed = () => { openAbout(); $('contactnote').textContent = T.contactNoApp + ' ' + EMAIL; };
+  $('contactlink').textContent = T.contact;
+  $('contacttitle').textContent = T.contactTitle;
+  $('contacttext').textContent = T.contactText;
+  $('contactsend').textContent = T.contactSend;
+  $('contactlink').addEventListener('click', openAbout);
+  $('contactsend').addEventListener('click', sendMail);
   let seen = false;
   try { seen = localStorage.getItem(KEY) === '1'; } catch (e) { /* ignore */ }
   if (!seen) openTour();
