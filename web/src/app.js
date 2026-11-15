@@ -11,6 +11,7 @@ import { initAccess, isLocked } from './access.js';
 import { listRecent, saveRecent, loadRecent, removeRecent } from './recent.js';
 import { overhangTriangles, candidateDirections } from './orient.js';
 import { composeShare } from './share.js';
+import { checkModel, THIN_MM } from './check.js';
 
 applyStatic();
 
@@ -106,6 +107,7 @@ function dispose(obj) {
 function clearModel() {
   clearMeasure();
   clearOverhang();
+  clearCheck();
   laid = false;
   if ($('lay')) renderLay();
   for (const o of [model, boxHelper, grid]) if (o) { scene.remove(o); dispose(o); }
@@ -169,6 +171,7 @@ function refresh() {
   scene.add(grid);
   applyBackdrop();
   drawOverhang();
+  clearCheck();
 
   $('dx').textContent = fmt(size.x);
   $('dy').textContent = fmt(size.y);
@@ -184,6 +187,86 @@ function refresh() {
     try { mass = massProps(model, bbox); } catch (e) { console.error(e); mass = { volume: 0, area: 0, supportVol: 0 }; }
     renderWeight();
   }, 60);
+}
+
+// ---- printability check ----
+const checkGroup = new THREE.Group();
+scene.add(checkGroup);
+function clearCheck() {
+  while (checkGroup.children.length) { const o = checkGroup.children.pop(); o.geometry.dispose(); o.material.dispose(); }
+}
+function bedSize() {
+  let b = 256;
+  try { b = Number(localStorage.getItem('m3dv-bed')) || 256; } catch (e) { /* ignore */ }
+  return b;
+}
+async function runCheck() {
+  if (!model) return;
+  $('checksum').textContent = T.checkRunning;
+  $('checksum').className = '';
+  $('checklist').innerHTML = '';
+  $('check').hidden = false;
+  await new Promise((r) => setTimeout(r, 50));
+  let res;
+  try { res = checkModel(model, bbox); } catch (e) { console.error(e); $('checksum').textContent = T.checkFailed; return; }
+  clearCheck();
+  if (res.openSegments) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(res.openSegments, 3));
+    const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xff2bd6, depthTest: false, transparent: true }));
+    l.renderOrder = 12;
+    checkGroup.add(l);
+  }
+  if (res.thinTris) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(res.thinTris, 3));
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffd60a, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthTest: false }));
+    m.renderOrder = 12;
+    checkGroup.add(m);
+  }
+  renderCheck(res);
+}
+let lastCheck = null;
+function renderCheck(res) {
+  lastCheck = res;
+  const rows = [], n = (x) => x.toLocaleString(lang === 'he' ? 'he-IL' : 'en-US');
+  const add = (level, title, detail) => rows.push({ level, title, detail: detail || '' });
+  const tp = res.topo;
+  if (!tp) add('info', T.ckTopoSkipped, T.ckTopoSkippedD);
+  else {
+    if (tp.open) add('bad', T.ckOpen, T.ckOpenD(n(tp.open))); else add('ok', T.ckClosed);
+    if (tp.nonManifold) add('bad', T.ckNonManifold, T.ckNonManifoldD(n(tp.nonManifold)));
+  }
+  if (res.inverted && tp && !tp.open) add('bad', T.ckInverted, T.ckInvertedD);
+  else if (tp && tp.inconsistent) add('warn', T.ckInconsistent, T.ckInconsistentD(n(tp.inconsistent)));
+  else if (tp) add('ok', T.ckOriented);
+  if (res.degenerate) add('warn', T.ckDegenerate(n(res.degenerate)), T.ckDegenerateD);
+  if (tp) { if (tp.bodies > 1) add('info', T.ckBodies(n(tp.bodies)), T.ckBodiesD); else add('ok', T.ckOneBody); }
+  const dims = res.size.slice().sort((a, b) => b - a), big = dims[0];
+  const dimText = res.size.map((d) => fmt(d)).join(' × ') + ' ' + T.mm;
+  if (big < 2) add('warn', T.ckTiny, T.ckTinyD(dimText));
+  else if (big > 1000) add('warn', T.ckHuge, T.ckHugeD(dimText));
+  else add('ok', T.ckSize, dimText);
+  const bed = bedSize();
+  if (big <= bed) add('ok', T.ckFits(bed));
+  else if (dims[1] <= bed * 0.5 && big <= bed * 1.3) add('warn', T.ckNoFit(bed), T.ckDiagonal(fmt(big)));
+  else add('bad', T.ckNoFit(bed), T.ckNoFitD(fmt(big)));
+  if (!res.thin) add('info', T.ckThinSkipped, { open: T.ckThinSkippedOpen, inverted: T.ckThinSkippedInverted }[res.thinSkip] || T.ckThinSkippedBig);
+  else if (res.thin.thinCount >= 2 || (res.thin.thinCount === 1 && res.thin.samples < 100)) add('warn', T.ckThin(THIN_MM), T.ckThinD(fmt(res.thin.min)));
+  else add('ok', T.ckNoThin(THIN_MM), T.ckSampled);
+  const worst = rows.some((r) => r.level === 'bad') ? 'bad' : rows.some((r) => r.level === 'warn') ? 'warn' : 'ok';
+  $('checksum').textContent = { bad: T.checkBad, warn: T.checkWarn, ok: T.checkOk }[worst];
+  $('checksum').className = worst;
+  const ul = $('checklist');
+  ul.innerHTML = '';
+  for (const r of rows) {
+    const li = document.createElement('li');
+    li.className = r.level;
+    const b = document.createElement('b'); b.textContent = r.title;
+    li.append(b);
+    if (r.detail) { const sp = document.createElement('span'); sp.textContent = r.detail; li.append(sp); }
+    ul.append(li);
+  }
 }
 
 // ---- red marking of the areas that need support ----
@@ -733,6 +816,13 @@ $('ohToggle').addEventListener('click', (e) => {
   drawOverhang();
 });
 $('share').addEventListener('click', shareImage);
+$('checkBtn').addEventListener('click', runCheck);
+$('checkclose').addEventListener('click', () => { $('check').hidden = true; });
+$('bed').value = String(bedSize());
+$('bed').addEventListener('change', () => {
+  try { localStorage.setItem('m3dv-bed', $('bed').value); } catch (e) { /* ignore */ }
+  if (lastCheck) renderCheck(lastCheck);
+});
 $('shareclose').addEventListener('click', () => { $('shareview').hidden = true; });
 $('recentBtn').addEventListener('click', openRecentList);
 $('recentEmptyBtn').addEventListener('click', openRecentList);
@@ -745,7 +835,7 @@ $('infill').addEventListener('change', renderWeight);
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => { e.preventDefault(); openFile(e.dataTransfer.files[0]); });
 
-window.__viewer = { openFile, openPending, overhangTris: () => (ohGroup.children[0] ? ohGroup.children[0].geometry.attributes.position.count / 3 : 0), tree: () => { const out = []; const walk = (o, d) => { out.push('  '.repeat(d) + o.type + ' name=' + JSON.stringify(o.name) + ' ud=' + JSON.stringify(o.userData) + (o.isMesh ? ' tris=' + (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3 + ' groups=' + o.geometry.groups.length : '')); o.children.forEach((c) => walk(c, d + 1)); }; if (model) walk(model, 0); return out.join('\n'); }, colors: () => { const out = []; if (model) model.traverse((o) => { if (o.isMesh) [].concat(o.material).forEach((m) => out.push('#' + m.color.getHexString() + (m.vertexColors ? '+vc' : ''))); }); return out.join(' '); }, project: (x, y, z) => { const r = renderer.domElement.getBoundingClientRect(); const p = toScreen(new THREE.Vector3(x, y, z), r); return [p.x + r.left, p.y + r.top]; } };
+window.__viewer = { openFile, openPending, checkMarks: () => checkGroup.children.map((c) => c.type + ':' + c.geometry.attributes.position.count).join(','), overhangTris: () => (ohGroup.children[0] ? ohGroup.children[0].geometry.attributes.position.count / 3 : 0), tree: () => { const out = []; const walk = (o, d) => { out.push('  '.repeat(d) + o.type + ' name=' + JSON.stringify(o.name) + ' ud=' + JSON.stringify(o.userData) + (o.isMesh ? ' tris=' + (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3 + ' groups=' + o.geometry.groups.length : '')); o.children.forEach((c) => walk(c, d + 1)); }; if (model) walk(model, 0); return out.join('\n'); }, colors: () => { const out = []; if (model) model.traverse((o) => { if (o.isMesh) [].concat(o.material).forEach((m) => out.push('#' + m.color.getHexString() + (m.vertexColors ? '+vc' : ''))); }); return out.join(' '); }, project: (x, y, z) => { const r = renderer.domElement.getBoundingClientRect(); const p = toScreen(new THREE.Vector3(x, y, z), r); return [p.x + r.left, p.y + r.top]; } };
 openPending();
 initAccess((acc) => { if (acc.state === 'owned') { status(''); openPending(); } resize(); });
 initTour();
